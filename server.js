@@ -2,7 +2,7 @@ const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
 const mysql = require('mysql');
-
+//const mysql = require('mysql2');// use mysql2 instead of mysql
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -150,7 +150,7 @@ function filterShipsByBounds(ships, bounds) {
         const latitude = ship.MetaData.latitude;
         const longitude = ship.MetaData.longitude;
         return longitude >= bounds.west && longitude <= bounds.east &&
-               latitude >= bounds.south && latitude <= bounds.north;
+            latitude >= bounds.south && latitude <= bounds.north;
     });
 }
 
@@ -165,7 +165,7 @@ app.use(express.static('public'));
 // 处理来自浏览器的 WebSocket 连接
 wss.on('connection', function connection(ws) {
     console.log('Browser connected to WebSocket server');
-    
+
     ws.on('message', function incoming(message) {
         const bounds = JSON.parse(message);
         ws.bounds = bounds;
@@ -174,7 +174,7 @@ wss.on('connection', function connection(ws) {
         ws.send(JSON.stringify(shipsInBounds));
     });
 
-    ws.on('close', function() {
+    ws.on('close', function () {
         console.log('Browser disconnected');
     });
 });

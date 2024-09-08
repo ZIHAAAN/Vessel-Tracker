@@ -1,19 +1,26 @@
 const express = require('express');
 const AWS = require('aws-sdk');
 const bodyParser = require('body-parser');
+const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, QueryCommand, ScanCommand  } = require('@aws-sdk/lib-dynamodb');
 const session = require('express-session');
 const path = require('path');
 
 const WebSocket = require('ws');
 const http = require('http');
 // //const mysql = require('mysql');
+// //const mysql = require('mysql');
 const mysql = require('mysql2');// use mysql2 instead of mysql
+
 
 const app = express();
 
+
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-
+const dbClient = new DynamoDBClient({
+    region: "us-east-1" // 确保使用正确的区域
+});
 
 
 // 配置 AWS Cognito 参数
@@ -115,12 +122,7 @@ app.post('/login', (req, res) => {
             console.error('Error logging in:', err);
             return res.status(400).send(err.message || JSON.stringify(err));
         }
-
-        // res.json({
-        //     message: 'Login successful!',
-        //     data: data.AuthenticationResult // 包含访问令牌等信息
-        // });
-
+//console.log("data",data)
         req.session.user = {
             email: email,
             token: data.AuthenticationResult.AccessToken // 你可以根据需要保存更多信息
@@ -181,7 +183,7 @@ const allShips = new Map();
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'root',
+    password: '123456',
     database: 'map'
 });
 
@@ -222,12 +224,41 @@ db.connect(err => {
 
 // 根据 MMSI 搜索船只
 app.get('/search', (req, res) => {
+    // 验证用户是否已登录
+    if (!req.session.user || !req.session.user.email) {
+        return res.status(403).json({ error: 'Unauthorized access' }); // 如果未登录，返回 403 错误
+    }
+
     const mmsi = req.query.mmsi;
 
     if (!mmsi) {
         return res.status(400).send({ error: 'MMSI is required' });
     }
 
+    // 可以通过 req.session.user 获取到当前登录用户的信息，比如 userId
+    const userEmail = req.session.user.email;
+    //console.log("userId",userEmail)
+
+    // 构建 DynamoDB 数据项
+    const item = {
+        TableName: "UserSearches", // 你的 DynamoDB 表名
+        Item: {
+            "Email": { S: userEmail },
+            "MMSI": { S: mmsi },
+            "SearchTime": { S: new Date().toISOString() } // 存储搜索时间
+        }
+    };
+
+    try {
+        // 将用户搜索存储到 DynamoDB
+        dbClient.send(new PutItemCommand(item));
+        console.log("Search stored successfully in DynamoDB.");
+    } catch (error) {
+        console.error("Error storing search in DynamoDB:", error);
+        return res.status(500).send({ error: 'Failed to store search data' });
+    }
+
+    // 更新查询以加入用户限制，确保用户只能搜索到与他们相关的船只信息
     const query = `
         SELECT MMSI, Latitude, Longitude, Cog, CommunicationState, NavigationalStatus, 
                PositionAccuracy, Raim, RateOfTurn, Sog, Timestamp, TrueHeading, ShipName, time_utc
@@ -236,6 +267,7 @@ app.get('/search', (req, res) => {
         LIMIT 1
     `;
 
+    // 传入 MMSI 和 UserId 作为查询参数
     db.query(query, [mmsi], (err, results) => {
         if (err) {
             console.error('Error searching ship from database:', err.stack);
@@ -250,14 +282,42 @@ app.get('/search', (req, res) => {
     });
 });
 
+
 // 按照 ShipName 搜索船只
 app.get('/searchByName', (req, res) => {
+
+    // 验证用户是否已登录
+    if (!req.session.user || !req.session.user.email) {
+        return res.status(403).json({ error: 'Unauthorized access' }); // 如果未登录，返回 403 错误
+    }
+
     const shipName = req.query.shipName;
 
     if (!shipName) {
         return res.status(400).send({ error: 'ShipName is required' });
     }
 
+    const userEmail = req.session.user.email;
+    //console.log("userId",userEmail)
+
+    // 构建 DynamoDB 数据项
+    const item = {
+        TableName: "UserSearches", // 你的 DynamoDB 表名
+        Item: {
+            "Email": { S: userEmail },
+            "shipName": { S: shipName },
+            "SearchTime": { S: new Date().toISOString() } // 存储搜索时间
+        }
+    };
+
+    try {
+        // 将用户搜索存储到 DynamoDB
+        dbClient.send(new PutItemCommand(item));
+        console.log("Search stored successfully in DynamoDB.");
+    } catch (error) {
+        console.error("Error storing search in DynamoDB:", error);
+        return res.status(500).send({ error: 'Failed to store search data' });
+    }
     const query = `
         SELECT MMSI, Latitude, Longitude, Cog, CommunicationState, NavigationalStatus, 
                PositionAccuracy, Raim, RateOfTurn, Sog, Timestamp, TrueHeading, ShipName, time_utc
@@ -279,6 +339,35 @@ app.get('/searchByName', (req, res) => {
         }
     });
 });
+
+const docClient = DynamoDBDocumentClient.from(dbClient);
+app.get('/searchHistory', async (req, res) => {
+    if (!req.session.user || !req.session.user.email) {
+        return res.status(403).json({ error: 'Unauthorized access' });
+    }
+
+    const userEmail = req.session.user.email;
+    const params = {
+        TableName: "UserSearches",
+        FilterExpression: "Email = :email",
+        ExpressionAttributeValues: {
+            ":email": userEmail
+        }
+    };
+
+    try {
+        // 创建并发送 ScanCommand
+        const command = new ScanCommand(params);
+        const { Items } = await docClient.send(command);
+        res.json(Items || []);
+    } catch (error) {
+        console.error('Error querying DynamoDB:', error);
+        res.status(500).send({ error: 'Failed to retrieve data' });
+    }
+});
+
+
+
 
 // 创建一个缓存数组用于存储待插入的船只数据
 const shipDataBuffer = [];

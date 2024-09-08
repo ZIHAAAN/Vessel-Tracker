@@ -45,11 +45,15 @@
 </head>
 
 <body>
-    <!-- search box -->
-    <input type="text" id="mmsiSearch" placeholder="Enter MMSI or ShipName"
-        style="position:absolute; top:10px; left:10px; z-index:1; padding:5px; width:150px;">
-    <!-- search button -->
-    <button id="searchBtn" style="position:absolute; top:10px; left:170px; z-index:1; padding:5px;">Search</button>
+    <div>
+        <!-- search box -->
+        <input type="text" id="mmsiSearch" placeholder="Enter MMSI or ShipName"
+            style="position:absolute; top:10px; left:10px; z-index:1; padding:5px; width:150px;">
+        <!-- search button -->
+        <button id="searchBtn" style="position:absolute; top:10px; left:170px; z-index:1; padding:5px;">Search</button>
+    </div>
+    <div style="position: absolute;z-index: 999;width: 20vw;margin-top: 5vh;margin-left: 3vw;background-color: white;" id="search-history"></div>
+    
 
 
     <div id="map"></div>
@@ -82,6 +86,44 @@
                 // 如果发生错误，也重定向到登录页面
                 window.location.href = '/index.html';
             }
+
+
+            try {
+    const response = await fetch('/searchHistory', {
+      method: 'GET',
+      credentials: 'include' // 确保请求时发送 cookies
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch search history');
+    }
+    const data = await response.json();
+
+    const historyContainer = document.getElementById('search-history');
+    historyContainer.innerHTML = ''; // 清除现有内容
+
+    if (data.length === 0) {
+      historyContainer.innerHTML = '<p>No search history found.</p>';
+    } else {
+        const list = document.createElement('ul');
+      data.forEach(item => {
+        const listItem = document.createElement('li');
+        console.log(item)
+        if(item.MMSI){
+            listItem.textContent = `MMSI: ${item.MMSI}, Time: ${item.SearchTime}`;
+        }else{
+            listItem.textContent = `Ship: ${item.shipName}, Time: ${item.SearchTime},`;
+        }
+        //listItem.textContent = `MMSI: ${mmsi}, Time: ${item.SearchTime}, Ship Name: ${shipName}`;
+        list.appendChild(listItem);
+      });
+      historyContainer.appendChild(list);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    document.getElementById('search-history').innerHTML = '<p>Error loading search history.</p>';
+  }
+
+
         };
 
 
@@ -215,7 +257,7 @@
         }
 
 
-        document.getElementById('searchBtn').addEventListener('click', function () {
+        document.getElementById('searchBtn').addEventListener('click', async function () {
             const searchInput = document.getElementById('mmsiSearch').value;
             // check if input is mmsi or shipname
             let mmsi = null;
@@ -228,6 +270,41 @@
                 searchShipByName(shipName);
             }
 
+            try {
+    const response = await fetch('/searchHistory', {
+      method: 'GET',
+      credentials: 'include' // 确保请求时发送 cookies
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch search history');
+    }
+    const data = await response.json();
+
+    const historyContainer = document.getElementById('search-history');
+    historyContainer.innerHTML = ''; // 清除现有内容
+
+    if (data.length === 0) {
+      historyContainer.innerHTML = '<p>No search history found.</p>';
+    } else {
+        const list = document.createElement('ul');
+      data.forEach(item => {
+        const listItem = document.createElement('li');
+        console.log(item)
+        if(item.MMSI){
+            listItem.textContent = `MMSI: ${item.MMSI}, Time: ${item.SearchTime}`;
+        }else{
+            listItem.textContent = `Ship: ${item.shipName}, Time: ${item.SearchTime},`;
+        }
+        //listItem.textContent = `MMSI: ${mmsi}, Time: ${item.SearchTime}, Ship Name: ${shipName}`;
+        list.appendChild(listItem);
+      });
+      historyContainer.appendChild(list);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    document.getElementById('search-history').innerHTML = '<p>Error loading search history.</p>';
+  }
+            
         });
 
         function searchShipByMMSI(mmsi) {

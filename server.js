@@ -19,7 +19,11 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const dbClient = new DynamoDBClient({
-    region: "us-east-1" // 确保使用正确的区域
+    region: 'us-east-1', // 你的 DynamoDB 区域
+    credentials: {
+        accessKeyId: 'XXXXXXXXXXX',    //替换
+        secretAccessKey: 'XXXXXXXXXXX'    //替换
+    }
 });
 
 

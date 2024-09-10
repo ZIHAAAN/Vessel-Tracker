@@ -52,8 +52,9 @@
         <!-- search button -->
         <button id="searchBtn" style="position:absolute; top:10px; left:170px; z-index:1; padding:5px;">Search</button>
     </div>
-    <div style="position: absolute;z-index: 999;width: 20vw;margin-top: 5vh;margin-left: 3vw;background-color: white;" id="search-history"></div>
-    
+    <div style="position: absolute;z-index: 999;width: 20vw;margin-top: 5vh;margin-left: 3vw;background-color: white;"
+        id="search-history"></div>
+
 
 
     <div id="map"></div>
@@ -65,97 +66,97 @@
 
         window.onload = async function () {
             try {
-                // 发送请求到服务器，检查 session 是否存在
+                // Send a request to the server to check if the session exists
                 const response = await fetch('/check-session', {
                     method: 'GET',
-                    credentials: 'include' // 包含 cookie 信息，用于传递 session
+                    credentials: 'include' // Include cookie information for passing the session
                 });
                 console.log('response:', response);
                 if (response.ok) {
                     console.log('Session exists, user is logged in.');
-                    // 用户已登录，继续加载页面
+                    // User is logged in, continue loading the page
                 } else if (response.status === 401) {
                     console.log('No session found, redirecting to login page.');
-                    // 如果没有 session，重定向到登录页面
+                    // If there's no session, redirect to the login page
                     window.location.href = '/index.html';
                 } else {
                     console.error('Unexpected response status:', response.status);
                 }
             } catch (error) {
                 console.error('Error checking session:', error);
-                // 如果发生错误，也重定向到登录页面
+                // If an error occurs, also redirect to the login page
                 window.location.href = '/index.html';
             }
 
 
             try {
-    const response = await fetch('/searchHistory', {
-      method: 'GET',
-      credentials: 'include' // 确保请求时发送 cookies
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch search history');
-    }
-    const data = await response.json();
+                const response = await fetch('/searchHistory', {
+                    method: 'GET',
+                    credentials: 'include' // Ensure cookies are sent with the request
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to fetch search history');
+                }
+                const data = await response.json();
 
-    const historyContainer = document.getElementById('search-history');
-    historyContainer.innerHTML = ''; // 清除现有内容
+                const historyContainer = document.getElementById('search-history');
+                historyContainer.innerHTML = ''; // Clear existing content
 
-    if (data.length === 0) {
-      historyContainer.innerHTML = '<p>No search history found.</p>';
-    } else {
-        const list = document.createElement('ul');
-      data.forEach(item => {
-        const listItem = document.createElement('li');
-        console.log(item)
-        if(item.MMSI){
-            listItem.textContent = `MMSI: ${item.MMSI}, Time: ${item.SearchTime}`;
-        }else{
-            listItem.textContent = `Ship: ${item.shipName}, Time: ${item.SearchTime},`;
-        }
-        //listItem.textContent = `MMSI: ${mmsi}, Time: ${item.SearchTime}, Ship Name: ${shipName}`;
-        list.appendChild(listItem);
-      });
-      historyContainer.appendChild(list);
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    document.getElementById('search-history').innerHTML = '<p>Error loading search history.</p>';
-  }
+                if (data.length === 0) {
+                    historyContainer.innerHTML = '<p>No search history found.</p>';
+                } else {
+                    const list = document.createElement('ul');
+                    data.forEach(item => {
+                        const listItem = document.createElement('li');
+                        console.log(item)
+                        if (item.MMSI) {
+                            listItem.textContent = `MMSI: ${item.MMSI}, Time: ${item.SearchTime}`;
+                        } else {
+                            listItem.textContent = `Ship: ${item.shipName}, Time: ${item.SearchTime},`;
+                        }
+                        //listItem.textContent = `MMSI: ${mmsi}, Time: ${item.SearchTime}, Ship Name: ${shipName}`;
+                        list.appendChild(listItem);
+                    });
+                    historyContainer.appendChild(list);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('search-history').innerHTML = '<p>Error loading search history.</p>';
+            }
 
 
         };
 
 
 
-        // 设置 Mapbox 的访问令牌
+        // // Set Mapbox access token
         mapboxgl.accessToken = 'pk.eyJ1IjoiamFkZW5sZW1tb24iLCJhIjoiY2swaHF6OGhhMDVoczNtcXJ1eWJhNzljMCJ9.rh0Da7Ct2szjyDfqW5MyTg';
 
-        // 初始化地图
+        // Initialize the map
         const map = new mapboxgl.Map({
-            container: 'map', // 地图容器的ID
-            style: 'mapbox://styles/mapbox/streets-v11', // 地图样式
-            center: [175.318526, -37.788266], // 初始地图中心 [经度, 纬度]
-            zoom: 8 // 初始地图缩放级别
+            container: 'map', // Map container ID
+            style: 'mapbox://styles/mapbox/streets-v11', // Map style
+            center: [175.318526, -37.788266], // Initial map center [longitude, latitude]
+            zoom: 8 // Initial map zoom level
         });
 
-        // 存储所有标记的对象，以 MMSI 作为键
+        // Store all markers in an object, using MMSI as the key
         const markers = {};
 
-        // 连接到 WebSocket 服务器
+        // Connect to the WebSocket server
         const socket = new WebSocket(`ws://${window.location.host}`);
 
-        // 地图加载完成后，发送初始范围
+        // Send initial range after the map is loaded
         map.on('load', sendMapBounds);
 
-        // 当地图视图发生变化时，发送新的地图范围
+        // Send new map range when the map view changes
         map.on('moveend', sendMapBounds);
-        // 当地图视图发生变化时，延迟 200 毫秒发送新的地图范围
+        // Send new map range with a 200ms delay when the map view changes
         //map.on('moveend', _.debounce(sendMapBounds, 200));
 
         socket.onmessage = function (event) {
             const ships = JSON.parse(event.data);
-            const mapBounds = map.getBounds(); // 获取当前地图视图范围
+            const mapBounds = map.getBounds(); // Get current map view range
 
             ships.forEach(aisMessage => {
                 const mmsi = aisMessage.MMSI;
@@ -163,14 +164,14 @@
                 const longitude = aisMessage.Longitude;
                 const shipName = aisMessage.ShipName || 'Unknown';
                 const navigationalStatus = aisMessage.NavigationalStatus || 'Unknown';
-                const cog = aisMessage.Cog || 'N/A'; // 如果 `COG` 没有值，则显示 "N/A"
+                const cog = aisMessage.Cog || 'N/A'; // If `COG` has no value, display "N/A"
 
-                // 检查该 MMSI 是否已有标记
+                // Update the position of the existing marker
                 if (markers[mmsi]) {
-                    // 更新现有标记的位置
+                    // Update the position of the existing marker
                     markers[mmsi].setLngLat([longitude, latitude]);
                 } else {
-                    // 创建新的标记并存储在 markers 对象中
+                    // Create a new marker and store it in the markers object
                     const marker = new mapboxgl.Marker()
                         .setLngLat([longitude, latitude])
                         .setPopup(new mapboxgl.Popup().setHTML(`
@@ -178,25 +179,26 @@
                             <strong>Ship Name:</strong> ${shipName}<br>
                             <strong>Navigational Status:</strong> ${navigationalStatus}
                             <strong>COG (Course Over Ground):</strong> ${cog}°
-                        `)) // 直接与 Popup 绑定
+                        `)) // Directly bind with Popup
+
                         .addTo(map);
 
                     markers[mmsi] = marker;
 
                     marker.getElement().addEventListener('click', () => {
                         console.log('click on marker...');
-                        marker.togglePopup(); // 自动切换 Popup 的显示和隐藏
+                        marker.togglePopup(); // Automatically toggle Popup display
                     });
 
                     marker.getElement().addEventListener('click', () => {
                         console.log('click on marker...');
 
-                        // 如果已有弹出框，先移除它
+                        // If there's already a popup, remove it first
                         if (currentPopup) {
                             currentPopup.remove();
                         }
 
-                        // 创建并展示新的弹出框
+                        // Create and display a new popup
                         currentPopup = new mapboxgl.Popup()
                             .setLngLat([longitude, latitude])
                             .setHTML(`
@@ -205,7 +207,7 @@
                                 <strong>Navigational Status:</strong> ${navigationalStatus}
                             `)
                             .addTo(map);
-                        // 检查经纬度是否有效
+                        // Check if latitude and longitude are valid
                         if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
                             console.error('Invalid longitude or latitude:', longitude, latitude);
                         }
@@ -217,18 +219,18 @@
             });
 
 
-            // 输出当前地图上的标记总数
+            // Output the total number of markers currently on the map
             console.log('Total number of markers:', Object.keys(markers).length);
 
-            // 当标记总数超过500时，清除屏幕外的标记点
+            // When the total number of markers exceeds 200, clear markers outside the screen
             if (Object.keys(markers).length > 200) {
                 Object.keys(markers).forEach(mmsi => {
                     const marker = markers[mmsi];
                     const markerLngLat = marker.getLngLat();
 
-                    // 检查标记点是否在当前视图范围内
+                    // Check if the marker is within the current view range
                     if (!mapBounds.contains(markerLngLat)) {
-                        // 如果标记点不在范围内，移除它并从 markers 对象中删除
+                        // If the marker is not in range, remove it and delete it from the markers object
                         marker.remove();
                         delete markers[mmsi];
                     }
@@ -241,7 +243,7 @@
             console.error('WebSocket error:', error);
         };
 
-        // 将当前地图的边界范围发送到后端
+        // Send the current map boundary range to the backend
         function sendMapBounds() {
             console.log('map area update')
             if (socket.readyState === WebSocket.OPEN) {
@@ -271,58 +273,58 @@
             }
 
             try {
-    const response = await fetch('/searchHistory', {
-      method: 'GET',
-      credentials: 'include' // 确保请求时发送 cookies
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch search history');
-    }
-    const data = await response.json();
+                const response = await fetch('/searchHistory', {
+                    method: 'GET',
+                    credentials: 'include' // Ensure cookies are sent with the request
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to fetch search history');
+                }
+                const data = await response.json();
 
-    const historyContainer = document.getElementById('search-history');
-    historyContainer.innerHTML = ''; // 清除现有内容
+                const historyContainer = document.getElementById('search-history');
+                historyContainer.innerHTML = ''; // Clear existing content
 
-    if (data.length === 0) {
-      historyContainer.innerHTML = '<p>No search history found.</p>';
-    } else {
-        const list = document.createElement('ul');
-      data.forEach(item => {
-        const listItem = document.createElement('li');
-        console.log(item)
-        if(item.MMSI){
-            listItem.textContent = `MMSI: ${item.MMSI}, Time: ${item.SearchTime}`;
-        }else{
-            listItem.textContent = `Ship: ${item.shipName}, Time: ${item.SearchTime},`;
-        }
-        //listItem.textContent = `MMSI: ${mmsi}, Time: ${item.SearchTime}, Ship Name: ${shipName}`;
-        list.appendChild(listItem);
-      });
-      historyContainer.appendChild(list);
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    document.getElementById('search-history').innerHTML = '<p>Error loading search history.</p>';
-  }
-            
+                if (data.length === 0) {
+                    historyContainer.innerHTML = '<p>No search history found.</p>';
+                } else {
+                    const list = document.createElement('ul');
+                    data.forEach(item => {
+                        const listItem = document.createElement('li');
+                        console.log(item)
+                        if (item.MMSI) {
+                            listItem.textContent = `MMSI: ${item.MMSI}, Time: ${item.SearchTime}`;
+                        } else {
+                            listItem.textContent = `Ship: ${item.shipName}, Time: ${item.SearchTime},`;
+                        }
+                        //listItem.textContent = `MMSI: ${mmsi}, Time: ${item.SearchTime}, Ship Name: ${shipName}`;
+                        list.appendChild(listItem);
+                    });
+                    historyContainer.appendChild(list);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('search-history').innerHTML = '<p>Error loading search history.</p>';
+            }
+
         });
 
         function searchShipByMMSI(mmsi) {
-            // 发送请求到服务器，查找特定 MMSI 的船只信息
+            // Send a request to the server to find ship information for a specific MMSI
             fetch(`/search?mmsi=${mmsi}`)
                 .then(response => response.json())
                 .then(ship => {
                     if (ship) {
-                        // 如果找到该船只，检查是否已存在于地图上
+                        // If the ship is found, check if it already exists on the map
                         if (markers[mmsi]) {
-                            // 移除现有的标记
+                            // Remove existing marker
                             markers[mmsi].remove();
                             delete markers[mmsi];
                         }
-                        // 创建新的红色标记
+                        // Create a new red marker
                         createCustomMarker(mmsi, ship.Longitude, ship.Latitude, ship.ShipName, ship.NavigationalStatus, ship.Cog);
 
-                        // 将地图中心移动到该船只位置
+                        // Move the map center to the ship's location
                         map.flyTo({ center: [ship.Longitude, ship.Latitude], zoom: 12 });
                     } else {
                         alert('Ship not found.');
@@ -330,19 +332,20 @@
                 })
                 .catch(error => {
                     console.error('Error searching for ship:', error);
-                    alert('Error occurred while searching for the ship.');
+                    //alert('Error occurred while searching for the ship.');
+                    alert('Ship not found.');
                 });
 
         }
 
 
         function searchShipByName(shipName) {
-            // 发送请求到服务器，查找特定船名的船只信息
+            // Send a request to the server to find ship information for a specific ship name
             fetch(`/searchByName?shipName=${shipName}`)
                 .then(response => response.json())
                 .then(ships => {
                     if (ships.length > 0) {
-                        // 清除之前的搜索结果标记（如果需要）
+                        // Clear previous search result markers (if needed)
                         Object.keys(markers).forEach(mmsi => {
                             markers[mmsi].remove();
                             delete markers[mmsi];
@@ -361,15 +364,15 @@
                     alert('Error occurred while searching for the ships.');
                 });
         }
-        // 自定义标记
+        // Custom marker
         function createCustomMarker(mmsi, longitude, latitude, shipName, navigationalStatus, cog) {
             const el = document.createElement('div');
             el.className = 'custom-marker';
-            el.style.backgroundColor = 'red'; // 设置整个图标为红色
-            el.style.width = '20px'; // 设置图标的宽度
-            el.style.height = '20px'; // 设置图标的高度
-            el.style.borderRadius = '50%'; // 将图标设置为圆形
-            // 创建新的标记并存储在 markers 对象中
+            el.style.backgroundColor = 'red'; // Set the entire icon to red
+            el.style.width = '20px';
+            el.style.height = '20px';
+            el.style.borderRadius = '50%'; // Set the icon to be circular
+            // Create a new marker and store it in the markers object
             const marker = new mapboxgl.Marker(el)
                 .setLngLat([longitude, latitude])
                 .setPopup(new mapboxgl.Popup().setHTML(`
@@ -377,14 +380,14 @@
                     <strong>Ship Name:</strong> ${shipName}<br>
                     <strong>Navigational Status:</strong> ${navigationalStatus}
                     <strong>COG (Course Over Ground):</strong> ${cog}°
-                `)) // 直接与 Popup 绑定
+                `)) // Directly bind with Popup
                 .addTo(map);
 
             markers[mmsi] = marker;
 
-            // 添加点击事件，显示 Popup
+            // Add click event to display Popup
             marker.getElement().addEventListener('click', () => {
-                marker.togglePopup(); // 自动切换 Popup 的显示和隐藏
+                marker.togglePopup(); // Automatically toggle Popup display
             });
 
             return marker;

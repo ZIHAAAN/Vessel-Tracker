@@ -1,114 +1,3 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AWS Cognito Login</title>
-</head>
-
-<body>
-  <h1>AWS Cognito Authentication</h1>
-
-  <h2>Register</h2>
-  <form id="register-form">
-    <input type="text" id="register-given-name" placeholder="Given Name" required />
-    <input type="text" id="register-family-name" placeholder="Family Name" required />
-    <input type="email" id="register-email" placeholder="Email" required />
-    <input type="password" id="register-password" placeholder="Password" required />
-    <button type="submit">Register</button>
-  </form>
-
-
-  <h2>Confirm Registration</h2>
-  <form id="confirm-form">
-    <input type="email" id="confirm-email" placeholder="Email" required />
-    <input type="text" id="confirm-code" placeholder="Confirmation Code" required />
-    <button type="submit">Confirm</button>
-  </form>
-
-  <h2>Login</h2>
-  <form id="login-form">
-    <input type="email" id="login-email" placeholder="Email" required />
-    <input type="password" id="login-password" placeholder="Password" required />
-    <button type="submit">Login</button>
-  </form>
-
-  <script>
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const givenName = document.getElementById('register-given-name').value;
-      const familyName = document.getElementById('register-family-name').value;
-      const email = document.getElementById('register-email').value;
-      const password = document.getElementById('register-password').value;
-
-      const response = await fetch('/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ givenName, familyName, email, password })
-      });
-
-      const data = await response.json();
-      console.log('Register:', data);
-    });
-
-
-    document.getElementById('confirm-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('confirm-email').value;
-      const code = document.getElementById('confirm-code').value;
-
-      const response = await fetch('/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code })
-      });
-
-      const data = await response.json();
-      console.log('Confirm:', data);
-    });
-
-    // document.getElementById('login-form').addEventListener('submit', async (e) => {
-    //   e.preventDefault();
-    //   const email = document.getElementById('login-email').value;
-    //   const password = document.getElementById('login-password').value;
-
-    //   const response = await fetch('/login', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ email, password })
-    //   });
-
-    //   const data = await response.json();
-    //   console.log('Login:', data);
-    // });
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-
-      const response = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (response.ok) {
-        // 解析 JSON 响应，获取重定向 URL
-        const data = await response.json();
-        // 使用重定向 URL 进行跳转
-        window.location.href = data.redirectUrl;
-      } else {
-        console.error('Login failed:', response);
-        const errorData = await response.json();
-        console.log('Error:', errorData);
-      }
-    });
-  </script>
-</body>
-
-</html> -->
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -208,6 +97,19 @@
     .hidden {
       display: none;
     }
+
+    .error {
+      color: red;
+      font-size: 0.9rem;
+      margin-top: -0.8rem;
+      margin-bottom: 1rem;
+    }
+
+    .error-message {
+      color: red;
+      margin-top: 10px;
+      text-align: center;
+    }
   </style>
 </head>
 
@@ -221,6 +123,7 @@
       <input type="password" id="login-password" placeholder="Password" required />
       <button type="submit">Login</button>
     </form>
+    <p id="login-error" class="error-message"></p>
     <p>Don't have an account? <a href="#" id="show-register">Register</a></p>
   </div>
 
@@ -231,6 +134,8 @@
       <input type="text" id="register-family-name" placeholder="Family Name" required />
       <input type="email" id="register-email" placeholder="Email" required />
       <input type="password" id="register-password" placeholder="Password" required />
+      <input type="password" id="register-confirm-password" placeholder="Confirm Password" required />
+      <div id="password-error" class="error hidden">Passwords do not match</div>
       <button type="submit">Register</button>
     </form>
     <p>Already have an account? <a href="#" id="show-login">Login</a></p>
@@ -249,6 +154,8 @@
     const loginView = document.getElementById('login-view');
     const registerView = document.getElementById('register-view');
     const confirmView = document.getElementById('confirm-view');
+    const passwordError = document.getElementById('password-error');
+
 
     document.getElementById('show-register').addEventListener('click', (e) => {
       e.preventDefault();
@@ -268,6 +175,13 @@
       const familyName = document.getElementById('register-family-name').value;
       const email = document.getElementById('register-email').value;
       const password = document.getElementById('register-password').value;
+      const confirmPassword = document.getElementById('register-confirm-password').value;
+
+      if (password !== confirmPassword) {
+        passwordError.classList.remove('hidden');
+        return;
+      }
+      passwordError.classList.add('hidden');
 
       const response = await fetch('/register', {
         method: 'POST',
@@ -307,6 +221,8 @@
       e.preventDefault();
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
+      const loginError = document.getElementById('login-error');
+
 
       const response = await fetch('/login', {
         method: 'POST',
@@ -314,13 +230,23 @@
         body: JSON.stringify({ email, password })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        window.location.href = data.redirectUrl;
-      } else {
-        console.error('Login failed:', response);
-        const errorData = await response.json();
-        console.log('Error:', errorData);
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          window.location.href = data.redirectUrl;
+        } else {
+          const errorData = await response.json();
+          loginError.textContent = errorData.message || 'Login failed. Please check your email and password.';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        loginError.textContent = 'Login failed. Please check your email and password.';
       }
     });
   </script>

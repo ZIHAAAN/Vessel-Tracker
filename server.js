@@ -2,27 +2,22 @@ const express = require('express');
 const AWS = require('aws-sdk');
 const bodyParser = require('body-parser');
 const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, QueryCommand, ScanCommand  } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const session = require('express-session');
 const path = require('path');
-
 const WebSocket = require('ws');
 const http = require('http');
-// //const mysql = require('mysql');
-// //const mysql = require('mysql');
 const mysql = require('mysql2');// use mysql2 instead of mysql
 
-
 const app = express();
-
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const dbClient = new DynamoDBClient({
     region: 'us-east-1', // 你的 DynamoDB 区域
     credentials: {
-        accessKeyId: 'XXXXXXXXXXX',    //替换
-        secretAccessKey: 'XXXXXXXXXXX'    //替换
+        accessKeyId: 'XXXXXXXXXX',    //替换
+        secretAccessKey: 'XXXXXXXX'    //替换
     }
 });
 
@@ -126,7 +121,7 @@ app.post('/login', (req, res) => {
             console.error('Error logging in:', err);
             return res.status(400).send(err.message || JSON.stringify(err));
         }
-//console.log("data",data)
+        //console.log("data",data)
         req.session.user = {
             email: email,
             token: data.AuthenticationResult.AccessToken // 你可以根据需要保存更多信息
@@ -187,7 +182,7 @@ const allShips = new Map();
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '123456',
+    password: 'root',
     database: 'map'
 });
 

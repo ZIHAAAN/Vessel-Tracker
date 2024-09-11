@@ -3,23 +3,49 @@ const AWS = require('aws-sdk');
 const bodyParser = require('body-parser');
 const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+
 const session = require('express-session');
 const path = require('path');
 const WebSocket = require('ws');
 const http = require('http');
 const mysql = require('mysql2');// use mysql2 instead of mysql
+const { getSecret } = require('./secret.js');
 
 const app = express();
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-const dbClient = new DynamoDBClient({
-    region: 'us-east-1', // Your DynamoDB region
-    credentials: {
-        accessKeyId: 'XXXXXXXXXX',    //replace
-        secretAccessKey: 'XXXXXXXXX'    //replace
+
+let dbClient;
+let docClient;
+
+async function initializeDbClients() {
+    try {
+        const secret = await getSecret();
+        dbClient = new DynamoDBClient({
+            region: 'us-east-1',
+            credentials: {
+                accessKeyId: secret.accessKeyId,
+                secretAccessKey: secret.secretAccessKey
+            }
+        });
+        docClient = DynamoDBDocumentClient.from(dbClient);
+        console.log("DynamoDB clients initialized successfully");
+    } catch (error) {
+        console.error("Failed to initialize DynamoDB clients:", error);
+        process.exit(1); //Exit the program if the client can't be initialised
     }
-});
+}
+
+
+
+// const dbClient = new DynamoDBClient({
+//     region: 'us-east-1', // Your DynamoDB region
+//     credentials: {
+//         accessKeyId: 'XXXXXXXXXX',    //replace
+//         secretAccessKey: 'XXXXXXXXX'    //replace
+//     }
+// });
 
 
 // Configure AWS Cognito parameters
@@ -170,7 +196,7 @@ const allShips = new Map();
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '527group10',
+    password: 'root',
     database: 'map'
 });
 
@@ -327,12 +353,15 @@ app.get('/searchByName', (req, res) => {
     });
 });
 
-const docClient = DynamoDBDocumentClient.from(dbClient);
+//docClient = DynamoDBDocumentClient.from(dbClient);
 app.get('/searchHistory', async (req, res) => {
     if (!req.session.user || !req.session.user.email) {
         return res.status(403).json({ error: 'Unauthorized access' });
     }
-
+    // Check if the database client is initialized
+    if (!docClient) {
+        return res.status(503).json({ error: 'Database client not initialized' });
+    }
     const userEmail = req.session.user.email;
     const params = {
         TableName: "UserSearches",
@@ -500,6 +529,19 @@ function stopSendingData(ws) {
 
 // Start the server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+async function startServer() {
+    await initializeDbClients();
+
+    server.listen(PORT, () => {
+        console.log(`Server is listening on port ${PORT}`);
+    });
+}
+
+startServer().catch(error => {
+    console.error("Failed to start server:", error);
+    process.exit(1);
 });
+// const PORT = process.env.PORT || 3000;
+// server.listen(PORT, () => {
+//     console.log(`Server is listening on port ${PORT}`);
+// });

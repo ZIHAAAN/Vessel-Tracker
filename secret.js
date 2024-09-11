@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 
 async function getSecret() {
-    const secretName = "527GroupProject";
+    const secretName = "arn:aws:secretsmanager:us-east-1:211125669121:secret:527GroupProject-h4h0zY";
     const region = "us-east-1"; // 确保这与您的Secrets Manager所在区域匹配
 
     const client = new AWS.SecretsManager({

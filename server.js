@@ -196,7 +196,7 @@ const allShips = new Map();
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '527group10',
+    password: 'root',
     database: 'map'
 });
 

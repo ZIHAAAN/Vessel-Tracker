@@ -10,14 +10,28 @@ const WebSocket = require('ws');
 const http = require('http');
 const mysql = require('mysql2');// use mysql2 instead of mysql
 const { getSecret } = require('./secret.js');
-
+const https = require('https');
+const fs = require('fs');
 const app = express();
 
-const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 let dbClient;
 let docClient;
+
+const options = {
+    key: fs.readFileSync('/home/ec2-user/Vessel-Tracker/private.key'),
+    cert: fs.readFileSync('/home/ec2-user/Vessel-Tracker/certificate.crt')
+};
+const server = https.createServer(options, app);
+
+// const privateKey = fs.readFileSync('/home/ec2-user/Vessel-Tracker/private.key', 'utf8'); // Update this path
+// const certificate = fs.readFileSync('/home/ec2-user/Vessel-Tracker/certificate.crt', 'utf8'); // Update this path
+
+//const credentials = { key: privateKey, cert: certificate };
+
+
+
 
 async function initializeDbClients() {
     try {
@@ -196,7 +210,7 @@ const allShips = new Map();
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '527group10',
+    password: 'root',
     database: 'map'
 });
 
@@ -529,6 +543,7 @@ function stopSendingData(ws) {
 
 // Start the server
 const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 443;
 async function startServer() {
     await initializeDbClients();
 
